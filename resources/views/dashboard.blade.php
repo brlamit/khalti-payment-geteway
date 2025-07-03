@@ -1,8 +1,7 @@
 @extends('layouts.app')
 
-@section('styles')
-    <link rel="stylesheet" href="{{ asset('css/payment-form.css') }}">
-@endsection
+    <link rel="stylesheet" href="{{ asset('public/css/payment-form.css') }}">
+
 
 @section('content')
 <div class="items-list-container">
@@ -21,7 +20,10 @@
     @endif
 
     @auth
-        @if ($items->count())
+        @php
+            $item = App\Models\Item::all();
+        @endphp
+        @if ($item->count())
             <table class="items-table">
                 <thead>
                     <tr>
@@ -33,7 +35,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($items as $index => $item)
+                    @foreach ($item as $index => $item)
                         <tr>
                             <td>{{ $index + 1 }}</td>
                             <td>{{ $item->name }}</td>
