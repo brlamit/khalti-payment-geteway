@@ -47,7 +47,7 @@ class ItemController extends Controller
             'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('create')->with('success', 'Item created successfully.');
+        return redirect()->route('items.create')->with('success', 'Item created successfully.');
     }
 
     public function show($id)
@@ -91,7 +91,7 @@ class ItemController extends Controller
             return redirect()->route('dashboard')->with('error', 'You cannot purchase your own item.');
         }
 
-        $purchaseOrderId = 'PO  -' . auth()->id() . '-' . $item->id . '-' . uniqid();
+        $purchaseOrderId = 'PO-' . auth()->id() . '-' . $item->id . '-' . uniqid();
 
         $order = Order::create([
             'user_id' =>auth()->id(),
@@ -123,7 +123,7 @@ class ItemController extends Controller
         } catch (\Exception $e) {
             $order->delete();
             Log::error('Khalti payment initiation failed: ' . $e->getMessage());
-            return redirect()->route('items.index')->with('error', 'Payment initiation failed: ' . $e->getMessage());
+            return redirect()->route('dashboard')->with('error', 'Payment initiation failed: ' . $e->getMessage());
         }
     }
 
