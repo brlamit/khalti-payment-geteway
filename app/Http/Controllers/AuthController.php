@@ -63,8 +63,6 @@ class AuthController extends Controller
         }
 
         $user = auth()->user();
-
-        // Check if email is verified
         if (!$user->hasVerifiedEmail()) {
             return response()->json(['message' => 'Email not verified. Please verify your email first.'], 403);
         }
@@ -116,7 +114,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        if (!$user->otp || $user->otp !== (string)$request->otp) { // Ensure string comparison
+        if (!$user->otp || $user->otp !== (string)$request->otp) {
             return response()->json(['message' => 'Invalid OTP'], 400);
         }
 
@@ -148,7 +146,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // Debug output to inspect values
         \Log::info('Verify Email Debug:', [
             'user_otp' => $user->otp,
             'request_otp' => $request->otp,
@@ -157,7 +154,7 @@ class AuthController extends Controller
             'is_past' => Carbon::parse($user->otp_expires_at)->isPast(),
         ]);
 
-        if (!$user->otp || $user->otp !== (string)$request->otp) { // Ensure string comparison
+        if (!$user->otp || $user->otp !== (string)$request->otp) {
             return response()->json(['message' => 'Invalid OTP'], 400);
         }
 
@@ -165,7 +162,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'OTP has expired'], 400);
         }
 
-        // Verify email and reset OTP fields
         $user->forceFill([
             'email_verified_at' => now(),
             'email_verification_token' => $user->createToken('email_verification')->plainTextToken,
@@ -195,7 +191,9 @@ class AuthController extends Controller
             'user' => $request->user(),
         ], 200);
     }
-     public function deleteAccount(Request $request){
+
+    public function deleteAccount(Request $request)
+    {
         $request->validate([
             'password' => 'required|string',
             'email' => 'required|email|exists:users,email',

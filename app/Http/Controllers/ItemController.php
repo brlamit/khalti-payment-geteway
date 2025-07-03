@@ -29,7 +29,7 @@ class ItemController extends Controller
 
     public function create()
     {
-        return view('items.create');
+        return view('create');
     }
 
     public function store(Request $request)
@@ -44,25 +44,21 @@ class ItemController extends Controller
             'name' => $request->name,
             'description' => $request->description,
             'price' => $request->price,
-            'user_id' => Auth::id(),
+            'user_id' => auth()->id(),
         ]);
 
-        return redirect()->route('items.create')->with('success', 'Item created successfully.');
+        return redirect()->route('create')->with('success', 'Item created successfully.');
     }
 
-    public function show(Item $item)
+    public function show($id)
     {
-        if ($item->user_id !== Auth::id()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized action.');
-        }
+        $item = Item::findOrFail($id);
         return view('items.show', compact('item'));
     }
 
-    public function edit(Item $item)
+    public function edit($id)
     {
-        if ($item->user_id !== Auth::id()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized action.');
-        }
+        $item = Item::findOrFail($id);
         return view('items.edit', compact('item'));
     }
 
@@ -87,61 +83,59 @@ class ItemController extends Controller
         return redirect()->route('items.index')->with('success', 'Item updated successfully.');
     }
 
-   public function checkout(Request $request, Item $item)
-{
-    if ($item->user_id === Auth::id()) {
-        return redirect()->route('dashboard')->with('error', 'You cannot purchase your own item.');
-    }
-
-    $purchaseOrderId = 'PO-' . Auth::id() . '-' . $item->id . '-' . uniqid();
-
-    $order = Order::create([
-        'user_id' => Auth::id(),
-        'item_id' => $item->id,
-        'amount' => $item->price,
-        'status' => 'pending',
-        'transaction_id' => $purchaseOrderId,
-    ]);
-
-    try {
-        $paymentResponse = $this->paymentService->initiatePayment(
-            amount: $item->price,
-            purchaseOrderId: $purchaseOrderId,
-            purchaseOrderName: $item->name,
-            customerInfo: [
-                'name' => Auth::user()->name,
-                'email' => Auth::user()->email,
-                'phone' => '9800000001',
-            ]
-        );
-
-        Log::info('Khalti payment initiated', $paymentResponse);
-
-        $order->update(['pidx' => $paymentResponse['pidx']]);
-
-        return redirect($paymentResponse['payment_url']); // ✅ Redirects to Khalti payment page
-
-    } catch (\Exception $e) {
-        $order->delete();
-        Log::error('Khalti payment initiation failed: ' . $e->getMessage());
-        return redirect()->route('items.index')->with('error', 'Payment initiation failed: ' . $e->getMessage());
-    }
-}
-
-
-    public function showCheckout(Order $order)
+    public function checkout(Request $request, $id)
     {
-        if ($order->user_id !== Auth::id()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized action.');
+        $item = Item::findOrFail($id);
+
+        if ($item->user_id === auth()->id()) {
+            return redirect()->route('dashboard')->with('error', 'You cannot purchase your own item.');
         }
+
+        $purchaseOrderId = 'PO  -' . auth()->id() . '-' . $item->id . '-' . uniqid();
+
+        $order = Order::create([
+            'user_id' =>auth()->id(),
+            'item_id' => $item->id,
+            'amount' => $item->price,
+            'status' => 'pending',
+            'transaction_id' => $purchaseOrderId,
+        ]);
+
+        session(['item_id' => $item->id]);
+
+        try {
+            $paymentResponse = $this->paymentService->initiatePayment(
+                amount: $item->price,
+                purchaseOrderId: $purchaseOrderId,
+                purchaseOrderName: $item->name,
+                customerInfo: [
+                    'name' => Auth::user()->name,
+                    'email' => Auth::user()->email,
+                    'phone' => '9800000001',
+                ]
+            );
+
+            Log::info('Khalti payment initiated', $paymentResponse);
+
+            $order->update(['pidx' => $paymentResponse['pidx']]);
+
+            return redirect($paymentResponse['payment_url']);
+        } catch (\Exception $e) {
+            $order->delete();
+            Log::error('Khalti payment initiation failed: ' . $e->getMessage());
+            return redirect()->route('items.index')->with('error', 'Payment initiation failed: ' . $e->getMessage());
+        }
+    }
+
+    public function showCheckout($id)
+    {
+        $order = Order::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
         return view('khalti.checkout', compact('order'));
     }
 
-    public function khaltiPayment(Request $request, Order $order)
+    public function khaltiPayment(Request $request, $id)
     {
-        if ($order->user_id !== Auth::id()) {
-            return redirect()->route('dashboard')->with('error', 'Unauthorized action.');
-        }
+        $order = Order::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
 
         $request->validate([
             'amount' => 'required|numeric|min:10|in:' . $order->amount,
@@ -162,11 +156,10 @@ class ItemController extends Controller
             $order->update(['pidx' => $paymentResponse['pidx']]);
             return redirect($paymentResponse['payment_url']);
         } catch (\Exception $e) {
-    $order->delete();
-    Log::error('Khalti payment initiation failed: ' . $e->getMessage());
-    return redirect()->route('items.index')->with('error', 'Payment initiation failed: ' . $e->getMessage());
-}
-
+            $order->delete();
+            Log::error('Khalti payment initiation failed: ' . $e->getMessage());
+            return redirect()->route('items.checkout')->with('error', 'Payment initiation failed: ' . $e->getMessage());
+        }
     }
 
     public function khaltiSuccess(Request $request)
